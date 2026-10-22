@@ -25,7 +25,7 @@ td.up{background:#1f3a1a}td.down{background:#4a1a1a}td.fake{font-style:italic}
 </style></head><body><div id="toast"></div><div id="app"></div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const L={prof:'Профессия',bio:'Кто ты',health:'Здоровье',hobby:'Хобби',bag:'Багаж',fact:'Факт',phobia:'Фобия',ab1:'Способность 1',ab2:'Способность 2'};
+const L={prof:'Профессия',bio:'Кто ты',health:'Здоровье',hobby:'Хобби',bag:'Багаж',fact:'Факт',fact2:'Факт 2',phobia:'Фобия',ab1:'Способность 1',ab2:'Способность 2'};
 const s=io(),$=id=>document.getElementById(id);
 const tok=localStorage.tok||(localStorage.tok=crypto.randomUUID());
 const qr=new URLSearchParams(location.search).get('r');
@@ -44,8 +44,8 @@ const create=()=>s.emit('create',{name:nick(),room:$('room').value.trim(),token:
 const join=()=>{code=(qr||$('code').value).trim().toUpperCase();s.emit('join',{code,name:nick(),token:tok})};
 const go=(e,d)=>s.emit(e,d);
 const start=()=>s.emit('start',{seats:$('seats').value,free:$('free').value});
-const openAb=k=>{const me=st.players.find(p=>p.id===st.me);const id=me.abid[k];ui=['bluff','spy','force'].includes(id)?{k,id}:null;if(!ui)go('ability',{key:k});draw()};
-const sendAb=()=>{const d={key:ui.k};if($('ft'))d.text=$('ft').value,d.fkey=$('fk').value;if($('tg'))d.target=$('tg').value;ui=null;go('ability',d);draw()};
+const openAb=k=>{const me=st.players.find(p=>p.id===st.me);const id=me.abid[k];ui=['bluff','spy','force','swap','hide','silence','reroll','wipe','extra','duel','lightning'].includes(id)?{k,id}:null;if(!ui)go('ability',{key:k});draw()};
+const sendAb=()=>{const d={key:ui.k};if($('ft'))d.text=$('ft').value;if($('fk'))d.fkey=$('fk').value;if($('tg'))d.target=$('tg').value;ui=null;go('ability',d);draw()};
 function match(w,txt){return w&&txt&&w.some(x=>txt.toLowerCase().includes(x))}
 function draw(){const a=$('app');
  if(!st){a.innerHTML=`<h1>🍇 Бункер Диониса</h1><div class=box><h2>${qr?'Вход в комнату '+esc(qr.toUpperCase()):'Новая комната'}</h2>
@@ -58,7 +58,7 @@ function draw(){const a=$('app');
   h+=`<div class=box><h2>Лобби</h2><div class=k>Ссылка для друзей (нажми, чтобы скопировать):</div><input readonly value="${link}" onclick="this.select();navigator.clipboard&&navigator.clipboard.writeText(this.value)">
   ${st.players.map(p=>`<div class=row><span>${esc(p.name)} ${p.id===st.host?'👑':''}</span><span class=k>${p.online?'в сети':'нет связи'}</span></div>`).join('')}</div>
   ${host?`<div class=box><div class=k>Мест в бункере (меньше числа игроков)</div><input id=seats type=number min=1 value="${Math.max(1,Math.floor(n/2))}">
-  <div class=k>Раундов без голосования в начале</div><select id=free>${[0,1,2,3,4].map(i=>`<option ${i==2?'selected':''}>${i}</option>`).join('')}</select>
+  <div class=k>Раундов без голосования в начале</div><select id=free>${[0,1,2,3,4].map(i=>`<option ${i==3?'selected':''}>${i}</option>`).join('')}</select>
   <button class=g onclick=start()>Начать игру</button></div>`:'<div class=box>Ждём, пока ведущий начнёт игру…</div>'}<div class=err>${esc(msg)}</div>`;a.innerHTML=h;return}
  const d=st.disaster,sh=st.shift,myTurn=st.turn===st.me&&st.phase==='reveal';
  h+=`<div class=box><div class=big>${d.i} ${esc(d.t)}</div>${esc(d.d)}<div class=k style="margin-top:6px">🏚 ${esc(st.bunker)}</div><div class=k>Мест: ${st.seats} · Раунд ${st.round}${st.round<=st.free?' (без голосования)':''}</div></div>`;
@@ -73,18 +73,18 @@ function draw(){const a=$('app');
   if(st.phase==='vote')h+=`<div class=big style="margin-top:8px">Голосование</div><div class=k>Нажми «Против» под игроком в таблице</div>${host?'<button onclick="go(\'tally\')">Подвести итоги сейчас</button>':''}`}
  h+='</div>';
  const ks=Object.keys(L);
- h+=`<div class=sc><table><tr><th></th>${st.players.map(p=>`<th class="${p.alive?'':'dead'} ${p.id===st.turn&&st.phase==='reveal'?'turn':''}">${esc(perm?perm[p.id]:p.name)}${p.id===st.me?' (я)':''}${p.id===st.host?' 👑':''}${p.id===st.turn&&st.phase==='reveal'?' ▶':''}</th>`).join('')}</tr>`;
+ h+=`<div class=sc><table><tr><th></th>${st.players.map(p=>`<th class="${p.alive?'':'dead'} ${p.id===st.turn&&st.phase==='reveal'?'turn':''}">${esc(perm?perm[p.id]:p.name)}${p.mark||''}${p.id===st.me?' (я)':''}${p.id===st.host?' 👑':''}${p.id===st.turn&&st.phase==='reveal'?' ▶':''}</th>`).join('')}</tr>`;
  for(const k of ks){h+=`<tr><td>${L[k]}</td>`+st.players.map(p=>{let c='no',t='–';
    if(k.startsWith('ab')){if(p.used[k])t='применена';else if(p.open[k]&&p.card[k])t=esc(p.card[k]);if(t!=='–')c=''}
    else if(p.open[k]&&p.card[k]){t=esc(p.card[k]);c=p.fk.includes(k)?'fake':'';if(sh){if(match(sh.up,p.card[k]))c+=' up';else if(match(sh.down,p.card[k]))c+=' down'}}
    return`<td class="${c}">${t}${c.includes('up')?' ▲':''}${c.includes('down')?' ▼':''}</td>`}).join('')+'</tr>'}
  h+=`<tr><td>Голос</td>${st.players.map(p=>`<td>${st.phase==='vote'&&me.alive&&p.alive&&p.id!==me.id?`<button class=s onclick="go('vote','${p.id}')">Против ${me.vote===p.id?'✓':''}</button>`:(p.vote?'→ '+esc((st.players.find(x=>x.id===p.vote)||{}).name):'')}</td>`).join('')}</tr></table></div>`;
- h+=`<div class=box><h2>Моя карточка${me.alive?'':' (изгнан)'}</h2>`;
+ h+=`<div class=box><h2>Моя карточка${me.alive?'':' (изгнан)'}</h2>${me.secret?`<div class='box shift'><b>🔒 Тайна (никому не показывай)</b><br>${esc(me.secret.text)}</div>`:''}`;
  for(const k of Object.keys(L)){const ab=k.startsWith('ab'),o=me.open[k]&&!me.fk.includes(k),u=me.used[k],id=ab&&me.abid&&me.abid[k];
   h+=`<div class=row><div><span class=k>${L[k]}${o?' · открыто':''}${u?' · применена':''}</span><br>${esc(me.card[k])}</div>`;
   if(me.alive&&st.phase!=='end'){if(ab)h+=u?'':`<button onclick="openAb('${k}')">Применить</button>`;else if(!o)h+=`<button ${myTurn?'':'disabled'} onclick="go('reveal','${k}')">Открыть</button>`}h+='</div>'}
  if(ui){const o=st.players.filter(p=>p.alive&&p.id!==st.me).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  h+=`<div class="box shift"><b>Применить способность</b>${ui.id==='bluff'?`<select id=fk>${Object.keys(L).filter(k=>!k.startsWith('ab')).map(k=>`<option value=${k}>${L[k]}</option>`).join('')}</select><input id=ft placeholder="Придумай карточку" maxlength=80>`:`<select id=tg>${o}</select>`}<button class=g onclick=sendAb()>Готово</button><button class=s onclick="ui=null;draw()">Отмена</button></div>`}
+  h+=`<div class="box shift"><b>Применить способность</b>${['spy','force','swap','silence','wipe','duel','lightning'].includes(ui.id)?`<select id=tg>${o}</select>`:''}${['bluff','swap','hide','reroll','wipe','extra'].includes(ui.id)?`<select id=fk>${Object.keys(L).filter(k=>!k.startsWith('ab')).map(k=>`<option value=${k}>${L[k]}</option>`).join('')}</select>`:''}${ui.id==='bluff'?'<input id=ft placeholder="Придумай карточку" maxlength=80>':''}<button class=g onclick=sendAb()>Готово</button><button class=s onclick="ui=null;draw()">Отмена</button></div>`}
  h+='</div>';
  h+=`<div class=box><b>Ход игры</b><div class=log>${st.log.slice().reverse().map(esc).join('<br>')}</div></div>`;
  const keep=document.activeElement&&document.activeElement.id==='ft'?$('ft').value:null;a.innerHTML=h;if(keep!==null&&$('ft'))$('ft').value=keep}
