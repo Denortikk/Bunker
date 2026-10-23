@@ -83,7 +83,7 @@ function draw(){const a=$('app');
    else if(p.open[k]&&p.card[k]){t=esc(p.card[k]);c=p.fk.includes(k)?'fake':'';if(sh){if(match(sh.up,p.card[k]))c+=' up';else if(match(sh.down,p.card[k]))c+=' down'}}
    return`<td class="${c}">${t}${c.includes('up')?' ▲':''}${c.includes('down')?' ▼':''}</td>`}).join('')+'</tr>'}
  h+=`<tr><td>Голос</td>${st.players.map(p=>`<td>${st.phase==='vote'&&me.alive&&p.alive&&p.id!==me.id?`<button class=s onclick="go('vote','${p.id}')">Против ${me.vote===p.id?'✓':''}</button>`:(p.vote?'→ '+esc((st.players.find(x=>x.id===p.vote)||{}).name):'')}</td>`).join('')}</tr></table></div>`;
- h+=`<div class=box><h2>Моя карточка${me.alive?'':' (изгнан)'}</h2>${me.secret?`<div class='box shift'><b>🔒 Тайна (никому не показывай)</b><br>${esc(me.secret.text)}</div>`:''}`;
+ h+=`<div class=box><h2>Моя карточка${me.alive?'':' (изгнан)'}</h2>${me.secret?`<div class='box shift'><b>🔒 Тайна (никому не показывай)</b>${me.secret.kind==='bond'?`<br><b>Твоя пара: ${esc((st.players.find(x=>x.id===me.secret.partner)||{}).name||'')}</b>`:''}<br>${esc(me.secret.text)}</div>`:''}`;
  for(const k of Object.keys(L)){const ab=k.startsWith('ab'),o=me.open[k]&&!me.fk.includes(k),u=me.used[k],id=ab&&me.abid&&me.abid[k];
   const tx=String(me.card[k]),ci=ab?tx.indexOf(':'):-1;
   h+=`<div class=row><div><span class=k>${L[k]}${o?' · открыто':''}${u?' · применена':''}</span><br>${ci>0?`<b>${esc(tx.slice(0,ci))}</b><br><span class=k>${esc(tx.slice(ci+1).trim())}</span>`:esc(tx)}</div>`;

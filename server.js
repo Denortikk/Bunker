@@ -67,7 +67,7 @@ io.on('connection',s=>{
   r.seats=seats;r.free=free;r.bunker=pick(C.bunkers);r.disaster=pick(C.disasters);r.freeRooms=C.rooms.slice();r.shift=null;
   Object.values(r.players).forEach(p=>{const d=deal();p.card=d.card;p.abid=d.abid;p.fx=d.fx});
   {const ids=Object.keys(r.players),pool=ids.slice(),take=()=>pool.splice(rnd(pool.length),1)[0];
-   if(pool.length>=2&&Math.random()<1/6){const a=take(),b=take(),[ta,tb]=pick(C.bonds);r.players[a].secret={kind:'bond',text:ta,partner:b};r.players[b].secret={kind:'bond',text:tb,partner:a}}
+   if(pool.length>=2&&Math.random()<1/6){const a=take(),b=take(),[ta,tb]=pick(C.bonds);r.players[a].secret={kind:'bond',text:ta.replace('{P}',r.players[b].name),partner:b};r.players[b].secret={kind:'bond',text:tb.replace('{P}',r.players[a].name),partner:a}}
    if(pool.length&&Math.random()<1/7){const a=take(),typ=pick(['survive','hunter','guardian']),T=r.players[pick(ids.filter(i=>i!==a))];r.players[a].secret={kind:'mission',typ,text:pick(C.missions[typ]).replace(/\{T\}/g,T.name),target:T.id}}}
   if(Math.random()<.55){const pl=pick(Object.values(r.players)),g=pick(C.legend),kk=g.key==='fact'?pick(['fact','fact2']):g.key;pl.card[kk]=g.t;if(pl.fx)delete pl.fx[kk]}
   const total=free+n-seats,pool=[];for(let i=2;i<=total;i++)pool.push(i);
