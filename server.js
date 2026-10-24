@@ -3,7 +3,9 @@ const app=express();app.get('/',(q,r)=>r.sendFile(__dirname+'/index.html'));
 app.use((q,r,n)=>/^\/[\w-]+\.(jpe?g|png|webp)$/.test(q.path)?r.sendFile(__dirname+q.path,e=>e&&r.status(404).end()):n());
 const srv=http.createServer(app),io=new Server(srv),rooms={};
 const rnd=n=>Math.floor(Math.random()*n),pick=a=>a[rnd(a.length)];
-const NT=['spy','force','swap','silence','wipe','duel','lightning','candidate','tost','grill','shield','gift'];
+const NT=['spy','force','swap','silence','wipe','duel','lightning','candidate','tost','grill','shield','gift','frame','rumor','insight','jam','hood','coin'];
+const MIR=['force','silence','wipe','candidate','tost','grill','frame','jam','hood','rumor','coin'];
+const nxt=(u,k,list)=>{if(!u[k]||!u[k].length)u[k]=list.slice().sort(()=>Math.random()-.5);return u[k].pop()};
 const KEYS=['prof','bio','health','hobby','bag','fact','fact2','phobia'];
 const bc=(r,m)=>Object.values(r.players).forEach(o=>o.sock&&io.to(o.sock).emit('toast',m));
 const dice=(r,title,rolls)=>Object.values(r.players).forEach(o=>o.sock&&io.to(o.sock).emit('dice',{title,rolls}));
@@ -12,7 +14,7 @@ const bio=()=>{const g=Math.random()<.88?pick(['Мужчина','Женщина'
 const mkCode=()=>{let c;do{c=Math.random().toString(36).slice(2,6).toUpperCase()}while(rooms[c]);return c};
 const uniq=(list,used)=>{let v,g=0;do{v=pick(list)}while(used.has(v)&&g++<30);used.add(v);return v};
 function deal(used){
- const sp=()=>{const a=Math.random()<.85?pick(C.abx):pick(C.perm);return{t:a.t,id:a.id}};
+ const sp=()=>{const a=Math.random()<.15?nxt(used,'pm',C.perm):nxt(used,'ab',C.abx);return{t:a.t,id:a.id}};
  const a1=sp();let a2=sp(),g=0;while(a2.id===a1.id&&g++<20)a2=sp();
  const F=[uniq(C.factsGood,used.fact),uniq(C.factsBad,used.fact)];if(Math.random()<.5)F.reverse();
  const fx={};if(Math.random()<.35){const dd=pick(C.dyn),dk=Math.random()<.5?'fact':'fact2';F[dk==='fact'?0:1]=dd.t;fx[dk]=dd.fx}
@@ -26,12 +28,12 @@ function view(r,id){return{t:Date.now(),code:r.code,name:r.name,host:r.host,me:i
  players:Object.values(r.players).map(p=>{const own=p.id===id||r.phase==='end';const card={},open={};
   for(const k in (p.card||{}))if(own||p.open[k]){card[k]=p.card[k];open[k]=!!p.open[k]}
   (p.fakes||[]).forEach(f=>{card[f.key]=f.text;open[f.key]=true});
-  return{id:p.id,name:p.name,alive:p.alive,online:p.online,vote:r.phase==='vote'?r.votes[p.id]||null:null,open,used:p.used,card,fk:(p.fakes||[]).map(f=>f.key),abid:p.id===id?p.abid:null,perm:p.id===id?p.perm||null:null,mark:p.mark||'',secret:own?p.secret||null:null}})}}
+  return{id:p.id,name:p.name,alive:p.alive,online:p.online,vote:r.phase==='vote'?(r.votes[p.id]?(r.secret===r.round&&p.id!==id?'?':r.votes[p.id]):null):null,open,used:p.used,card,fk:(p.fakes||[]).map(f=>f.key),abid:p.id===id?p.abid:null,perm:p.id===id?p.perm||null:null,mark:p.mark||'',secret:own?p.secret||null:null}})}}
 const push=r=>Object.values(r.players).forEach(p=>p.sock&&io.to(p.sock).emit('state',view(r,p.id)));
 function show(r,o,k){r.tbl.push({id:o.id,key:k,text:o.card[k]})}
 function newRound(r){r.round++;r.phase='reveal';r.votes={};r.deadline=null;r.tbl=[];
  Object.values(r.players).forEach(p=>p.fakes=(p.fakes||[]).filter(f=>f.exp>=r.round));
- r.order=alive(r).map(p=>p.id);r.ti=0;
+ r.order=alive(r).map(p=>p.id);r.ti=0;if(r.nextReverse){r.order.reverse();r.nextReverse=false}
  if(r.round%2===1&&r.freeRooms.length){const rm=r.freeRooms.splice(rnd(r.freeRooms.length),1)[0];r.rooms.push(rm);log(r,`🚪 Открыта комната: ${rm.t}`)}
  if(r.cat.includes(r.round)){const pool=C.events.filter(x=>!r.events.includes(x));if(pool.length){const e=pick(pool);r.events.push(e);r.pop={i:e.i,t:e.t,d:e.d,img:e.img,tag:'Событие'};r.popSeq++;log(r,`${e.i} СОБЫТИЕ: ${e.t}`)}}
  Object.values(r.players).forEach(p=>{if(p.alive&&p.perm==='allseeing'&&p.sock){const o=alive(r).filter(x=>x.id!==p.id&&x.perm!=='stoic'&&left(x).length);if(o.length){const t=pick(o),k=pick(left(t));io.to(p.sock).emit('toast',`Всевидящий: у ${t.name} закрыто «${k}»: ${t.card[k]}`)}}});
@@ -50,11 +52,14 @@ function fire(r,o,k){const fx=o.fx&&o.fx[k];if(!fx)return;const V=vr(r);
  else if(fx==='jackpot'){const d=1+rnd(6);if(d>=5)o.dbl=V;else if(d<=2)o.muted=V;dice(r,'Азартный факт',[{name:o.name,v:d}]);log(r,`🎰 ${o.name} бросил кубик (${d}): ${d>=5?'двойной голос':d<=2?'не голосует':'ничего'}`)}
  else if(fx==='gossip')bc(r,`🗣 ${o.name} выдал секрет, теперь о нём шепчутся все`)}
 function tally(r){const cnt={};
- Object.entries(r.votes).forEach(([vid,t])=>{const T=r.players[t],Vp=r.players[vid];if(T.imm===r.round&&T.perm!=='tyrant')return;cnt[t]=(cnt[t]||0)+(Vp.dbl===r.round||Vp.perm==='tyrant'?2:1)+(Vp.bonus===r.round?1:0)});
+ Object.entries(r.votes).forEach(([vid,t])=>{const T=r.players[t],Vp=r.players[vid];if(Vp.perm==='lucky'||(T.imm===r.round&&T.perm!=='tyrant'))return;cnt[t]=(cnt[t]||0)+(Vp.dbl===r.round||Vp.perm==='tyrant'?2:1)+(Vp.bonus===r.round?1:0)});
  Object.values(r.players).forEach(x=>{if(x.alive&&x.cand===r.round&&!(x.imm===r.round&&x.perm!=='tyrant'))cnt[x.id]=(cnt[x.id]||0)+2});
  const mx=Math.max(0,...Object.values(cnt)),top=Object.keys(cnt).filter(k=>cnt[k]===mx);
  if(!top.length){log(r,'Голосов нет или у всех иммунитет. Без изгнания.');return newRound(r)}
- const p=top.map(i=>r.players[i]).find(x=>x.perm==='stoic')||r.players[pick(top)];p.alive=false;
+ const tp=top.filter(i=>r.players[i].perm!=='lucky'),p=top.map(i=>r.players[i]).find(x=>x.perm==='stoic')||r.players[pick(tp.length?tp:top)];
+ if(r.secret===r.round)log(r,'Голоса: '+Object.entries(r.votes).map(([a,b])=>r.players[a].name+'→'+r.players[b].name).join(', '));
+ if(p.lucky===r.round){const d=1+rnd(6);dice(r,'Счастливый билет',[{name:p.name,v:d}]);if(d>=4){log(r,`🍀 ${p.name} вытянул счастливый билет (${d}) и остаётся в бункере`);return newRound(r)}}
+ p.alive=false;
  log(r,`🔥 ${p.name} изгнан (${mx} гол.${top.length>1?', ничья, решила судьба':''}). Он был: ${p.card.prof}`);
  {const b=p.secret&&p.secret.kind==='bond'&&r.players[p.secret.partner];if(b&&b.alive){b.alive=false;log(r,`💔 Нить оборвалась: ${b.name} уходит вслед за ${p.name}. Он был: ${b.card.prof}`)}}
  if(alive(r).length<=r.seats){r.phase='end';outcomes(r);log(r,'🏛 Бункер закрыт. Выжили: '+alive(r).map(x=>x.name).join(', '))}else newRound(r)}
@@ -73,6 +78,8 @@ io.on('connection',s=>{
   r.seats=seats;r.free=free;r.disc=n<=3?90000:n<=5?150000:180000;r.extra=0;r.bunker=pick(C.bunkers);r.disaster=pick(C.disasters);r.freeRooms=C.rooms.slice();r.events=[];r.cat=[];r.rooms=[];r.tbl=[];
   const used={prof:new Set(),health:new Set(),hobby:new Set(),bag:new Set(),fact:new Set(),phobia:new Set()};
   Object.values(r.players).forEach(p=>{const d=deal(used);p.card=d.card;p.abid=d.abid;p.fx=d.fx});
+  {const slots=[];Object.values(r.players).forEach(p=>['ab1','ab2'].forEach(k=>slots.push([p,k])));
+   for(const gid of (n>=3?['bluff','blind']:['bluff']))if(!slots.some(([p,k])=>p.abid[k]===gid)){const c=slots.filter(([p,k])=>!['bluff','blind'].includes(p.abid[k]));if(c.length){const[p,k]=pick(c),a=C.abx.find(x=>x.id===gid);p.abid[k]=a.id;p.card[k]=a.t}}}
   {const ids=Object.keys(r.players),pool=ids.slice(),take=()=>pool.splice(rnd(pool.length),1)[0];
    if(pool.length>=2&&Math.random()<1/6){const a=take(),b=take(),[ta,tb]=pick(C.bonds);r.players[a].secret={kind:'bond',text:ta.replace('{P}',r.players[b].name),partner:b};r.players[b].secret={kind:'bond',text:tb.replace('{P}',r.players[a].name),partner:a}}
    if(pool.length&&Math.random()<1/7){const a=take(),typ=pick(['survive','hunter','guardian']),T=r.players[pick(ids.filter(i=>i!==a))];r.players[a].secret={kind:'mission',typ,text:pick(C.missions[typ]).replace(/\{T\}/g,T.name),target:T.id}}}
@@ -85,10 +92,11 @@ io.on('connection',s=>{
   p.open[key]=true;p.rr=r.round;show(r,p,key);log(r,`${p.name} открыл (${key}): ${p.card[key]}`);fire(r,p,key);r.ti++;skip(r);push(r)});
  s.on('skipturn',()=>{const r=R();if(!r||r.host!==s.data.pid||r.phase!=='reveal')return;r.ti++;skip(r);push(r)});
  s.on('ability',({key,target,fkey,text})=>{const r=R(),p=P();if(!r||!['reveal','discuss','vote'].includes(r.phase)||!p.alive||!/^ab[12]$/.test(key)||p.used[key])return;
-  const id=p.abid[key],t=r.players[target],to=(o,m)=>o.sock&&io.to(o.sock).emit('toast',m),V=vr(r);
+  const id=p.abid[key],to=(o,m)=>o.sock&&io.to(o.sock).emit('toast',m),V=vr(r);let t=r.players[target];if(p.jam===r.round)return err('Твои способности заглушены до конца раунда');
   if(NT.includes(id)&&(!t||(t.id===p.id&&id!=='shield')||!t.alive))return err('Выбери цель');
   if(t&&t.perm==='stoic'&&t.id!==p.id&&NT.includes(id))return err('Эта цель непоколебима: способности на неё не действуют');
-  if(['bluff','swap','hide','reroll','wipe','extra'].includes(id)&&!KEYS.includes(fkey))return err('Выбери категорию');
+  if(['bluff','swap','hide','reroll','wipe','extra','frame','insight'].includes(id)&&!KEYS.includes(fkey))return err('Выбери категорию');
+  if(t&&t.id!==p.id&&t.mirror===r.round&&MIR.includes(id)){log(r,`🪞 Зеркало ${t.name} отразило способность на ${p.name}`);to(t,'Зеркало сработало: способность отражена');t=p}
   if(id==='bluff'){if(!text)return err('Напиши текст карточки');p.fakes.push({key:fkey,text:String(text).slice(0,80),exp:r.round});log(r,`🎭 ${p.name} выставил карту (${fkey}): ${String(text).slice(0,80)}`)}
   else if(id==='blind'||id==='scramble'){Object.values(r.players).forEach(o=>o.id!==p.id&&o.perm!=='stoic'&&o.sock&&io.to(o.sock).emit('fx',{type:id,by:p.name}));log(r,`✨ ${p.name}: ${id==='blind'?'Слепота':'Путаница'}`)}
   else if(id==='time'){if(r.phase==='discuss')r.deadline+=120000;else r.extra=(r.extra||0)+120000;log(r,`⏳ ${p.name} добавил 2 минуты к обсуждению`)}
@@ -118,8 +126,24 @@ io.on('connection',s=>{
   else if(id==='gift'){t.bonus=V;p.muted=V;log(r,`🎁 ${p.name} отдал голос игроку ${t.name}: его голос считается на 1 больше, а сам ${p.name} не голосует`)}
   else if(id==='tost'){bc(r,`🥂 ${p.name} требует: ${t.name} должен сказать тост за бункер!`);log(r,`🥂 ${t.name} должен сказать тост (требует ${p.name})`)}
   else if(id==='grill'){bc(r,`❓ ${p.name} допрашивает ${t.name}: отвечай честно!`);log(r,`❓ ${p.name} допрашивает ${t.name}`)}
+  else if(id==='frame'){if(!text)return err('Напиши текст карточки');t.fakes.push({key:fkey,text:String(text).slice(0,80),exp:r.round});log(r,`🎭 У ${t.name} появилась карта (${fkey}): ${String(text).slice(0,80)}`)}
+  else if(id==='rumor'){if(!text)return err('Напиши слух');bc(r,`🗣 Ходят слухи про ${t.name}: «${String(text).slice(0,100)}»`);log(r,`🗣 Слух про ${t.name}: «${String(text).slice(0,100)}»`)}
+  else if(id==='insight'){s.emit('toast',`Проницательность: у ${t.name} «${fkey}»: ${t.card[fkey]}`);log(r,`🔎 ${p.name} кого-то изучает`)}
+  else if(id==='mirror'){p.mirror=r.round;log(r,`🪞 ${p.name} поставил зеркало до конца раунда`)}
+  else if(id==='wheel'){const d=1+rnd(6);dice(r,'Колесо судьбы',[{name:p.name,v:d}]);let m='ничего';
+   if(d===1){p.muted=V;m='не голосует'}else if(d===2){const cl=left(p);if(cl.length){const k=pick(cl);p.open[k]=true;show(r,p,k);fire(r,p,k)}m='открывает карту'}else if(d===4){p.imm=V;m='иммунитет'}else if(d===5){p.dbl=V;m='двойной голос'}
+   else if(d===6){const sl=['ab1','ab2'].find(k=>k!==key&&p.used[k]);if(sl){p.used[sl]=false;m='перезарядка способности'}else{p.imm=V;m='иммунитет'}}
+   log(r,`🎡 ${p.name} крутит колесо судьбы (${d}): ${m}`)}
+  else if(id==='coin'){const h=Math.random()<.5,o=h?t:p,cl=left(o);if(cl.length){const k=pick(cl);o.open[k]=true;show(r,o,k);fire(r,o,k)}log(r,`🪙 ${p.name} подбросил монету: ${h?'орёл':'решка'}, карту открывает ${o.name}`)}
+  else if(id==='recall'){const sl=['ab1','ab2'].find(k=>k!==key&&p.used[k]);if(!sl)return err('Нет использованной способности для перезарядки');p.used[sl]=false;log(r,`🔁 ${p.name} перезарядил способность`)}
+  else if(id==='ballot'){r.secret=V;log(r,'🗳 Ближайшее голосование будет тайным')}
+  else if(id==='jam'){t.jam=r.round;log(r,`📡 ${t.name} заглушён: способности недоступны до конца раунда`);to(t,'Тебя заглушили: способности недоступны до конца раунда')}
+  else if(id==='lucky'){p.lucky=V;log(r,`🍀 ${p.name} надеется на удачу в ближайшем голосовании`)}
+  else if(id==='hood'){if(t.sock)io.to(t.sock).emit('fx',{type:'blind',by:'кто-то'});log(r,`🧺 На ${t.name} накинули мешок`)}
+  else if(id==='reverse'){if(r.phase==='reveal'){r.order=r.order.slice(0,r.ti).concat(r.order.slice(r.ti).reverse())}else r.nextReverse=true;log(r,'🔄 Порядок ходов развёрнут')}
+  else if(id==='pass'){if(!(r.phase==='reveal'&&r.order[r.ti]===p.id))return err('Пас работает только в твой ход');r.ti++;skip(r);log(r,`⏭ ${p.name} пропустил ход`)}
   else log(r,`✨ ${p.name} применил способность`);
-  if(!['spy','swap','reroll'].includes(id))s.emit('toast','✅ Применено: '+String(p.card[key]).split(':')[0]);
+  if(!['spy','swap','reroll','insight'].includes(id))s.emit('toast','✅ Применено: '+String(p.card[key]).split(':')[0]);
   p.used[key]=true;if(!left(p).length&&r.phase==='reveal'&&r.order[r.ti]===p.id)skip(r);push(r)});
  s.on('newq',()=>{const r=R();if(!r||r.host!==s.data.pid||r.phase!=='discuss')return;r.q=pick(C.questions);push(r)});
  s.on('restart',()=>{const r=R();if(!r||r.host!==s.data.pid)return;

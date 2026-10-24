@@ -43,7 +43,8 @@ th.turn{background:#5a3512;color:var(--gold)}th.dead{opacity:.45;text-decoration
 <script>
 const L={prof:'Профессия',bio:'Кто ты',health:'Здоровье',hobby:'Хобби',bag:'Багаж',fact:'Факт',fact2:'Факт 2',phobia:'Боязнь',ab1:'Способность 1',ab2:'Способность 2'};
 const KS=['prof','bio','health','hobby','bag','fact','fact2','phobia'],ALL=KS.concat(['ab1','ab2']);
-const NT=['spy','force','swap','silence','wipe','duel','lightning','candidate','tost','grill','shield','gift'],FK=['bluff','swap','hide','reroll','wipe','extra'];
+const SPEC={bluff:'kt',spy:'p',force:'p',swap:'pk',hide:'k',reroll:'k',wipe:'pk',extra:'k',duel:'p',lightning:'p',candidate:'p',tost:'p',grill:'p',shield:'p',gift:'p',silence:'p',coin:'p',frame:'pkt',rumor:'pt',insight:'pk',jam:'p',hood:'p'};
+const has=(id,c)=>(SPEC[id]||'').includes(c);
 const s=io(),$=id=>document.getElementById(id);
 const tok=localStorage.tok||(localStorage.tok=crypto.randomUUID());
 const qr=new URLSearchParams(location.search).get('r');
@@ -101,7 +102,7 @@ function matrix(){const m=me();let h='<div class=sc><table><tr><th></th>'+st.pla
  for(const k of ALL){h+=`<tr><td class="lab ${cc(k)}">${L[k]}</td>`+st.players.map(p=>{let c='no',t='–';
   if(k.startsWith('ab')){if(p.used[k]){t='использована';c=''}}else if(p.open[k]&&p.card[k]){t=esc(p.card[k]);c=p.fk.includes(k)?'fake':''}
   return`<td class="${c}">${t}</td>`}).join('')+'</tr>'}
- h+=`<tr><td class="lab c-ab">Голос</td>${st.players.map(p=>{const v=p.vote&&st.players.find(x=>x.id===p.vote);return`<td>${st.phase==='vote'&&m.alive&&p.alive&&p.id!==m.id?`<button class=s onclick="go('vote','${p.id}')">Против ${m.vote===p.id?'✓':''}</button>`:(v?'→ '+esc(v.name):'')}</td>`}).join('')}</tr></table></div>`;return h}
+ h+=`<tr><td class="lab c-ab">Голос</td>${st.players.map(p=>{const v=p.vote&&p.vote!=='?'&&st.players.find(x=>x.id===p.vote);return`<td>${p.vote==='?'?'✔ ':''}${st.phase==='vote'&&m.alive&&p.alive&&p.id!==m.id?`<button class=s onclick="go('vote','${p.id}')">Против ${m.vote===p.id?'✓':''}</button>`:(v?'→ '+esc(v.name):'')}</td>`}).join('')}</tr></table></div>`;return h}
 function game(){return`<div class=top><b class=big style="margin:0">🍇 ${esc(st.name)}</b><span class=pill>Раунд ${st.round}</span><span class="pill v">🗳 ${esc(vlabel())}</span></div>${infoPanel()}${stage()}<h3>Все характеристики</h3>${matrix()}`}
 function draw(){const a=$('app'),fab=$('fab');
  if(!st){a.innerHTML=home();fab.style.display='none';$('sheet').style.display='none';return}
@@ -112,7 +113,7 @@ function sheetHtml(){const m=me(),myTurn=st.phase==='reveal'&&st.turn===st.me,tp
  if(st.phase==='reveal')h+=`<div class=hint>${myTurn?'Твой ход: открой одну карту':'Сейчас ходит: '+esc(tp?tp.name:'')}</div>`;
  if(m.secret)h+=`<div class="box shift"><b>🔒 Тайна (никому не показывай)</b>${m.secret.kind==='bond'?`<br><b>Твоя пара: ${esc((st.players.find(x=>x.id===m.secret.partner)||{}).name||'')}</b>`:''}<br>${esc(m.secret.text)}</div>`;
  if(ui){const o=(ui.id==='shield'?`<option value="${st.me}">Я сам</option>`:'')+st.players.filter(p=>p.alive&&p.id!==st.me).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  h+=`<div class="box shift"><b>Применить способность</b><div class=k style="margin:4px 0">${esc(m.card[ui.k])}</div>${NT.includes(ui.id)?`<div class=k>Цель:</div><select id=tg>${o}</select>`:''}${FK.includes(ui.id)?`<div class=k>Категория:</div><select id=fk>${KS.map(k=>`<option value=${k}>${L[k]}</option>`).join('')}</select>`:''}${ui.id==='bluff'?'<input id=ft placeholder="Текст выдуманной карты" maxlength=80>':''}<button class=g onclick=sendAb()>Применить</button><button class=s onclick="ui=null;drawSheet()">Отмена</button></div>`}
+  h+=`<div class="box shift"><b>Применить способность</b><div class=k style="margin:4px 0">${esc(m.card[ui.k])}</div>${has(ui.id,'p')?`<div class=k>Цель:</div><select id=tg>${o}</select>`:''}${has(ui.id,'k')?`<div class=k>Категория:</div><select id=fk>${KS.map(k=>`<option value=${k}>${L[k]}</option>`).join('')}</select>`:''}${has(ui.id,'t')?`<input id=ft placeholder="${ui.id==='rumor'?'Текст слуха':'Текст выдуманной карты'}" maxlength=100>`:''}<button class=g onclick=sendAb()>Применить</button><button class=s onclick="ui=null;drawSheet()">Отмена</button></div>`}
  for(const k of ALL){const ab=k.startsWith('ab'),o=m.open[k]&&!m.fk.includes(k),u=m.used[k],tx=String(m.card[k]),ci=ab?tx.indexOf(':'):-1;
   h+=`<div class="row ${cc(k)}"><div><span class=k>${L[k]}${o?' · открыто':''}${u?' · использована':''}</span><br>${ci>0?`<b>${esc(tx.slice(0,ci))}</b><br><span class=k>${esc(tx.slice(ci+1).trim())}</span>`:esc(tx)}</div>`;
   if(m.alive&&st.phase!=='end'){if(ab)h+=u?'':`<button onclick="openAb('${k}')">Применить</button>`;else if(!o)h+=`<button ${myTurn?'':'disabled'} onclick="reveal('${k}')">Открыть</button>`}h+='</div>'}
